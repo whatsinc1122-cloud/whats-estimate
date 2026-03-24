@@ -1,128 +1,86 @@
 import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
+import path from "path";
 
-// Maps app item names → L column row numbers (same as simple version)
-const EXCEL_ROW_MAP: Record<string, number> = {
-  仮設: 6,
-  解体: 7,
-  軽鉄: 8,
-  木工: 9,
-  造作: 10,
-  内装: 11,
-  タイル: 12,
-  塗装: 13,
-  左官: 14,
-  建具: 15,
-  ガラス: 16,
-  床下地: 17,
-  看板: 18,
-  家具: 19,
-  空調: 20,
-  給排気: 21,
-  電気: 22,
-  照明: 23,
-  衛生器具: 24,
-  給排水: 25,
-  ガス: 26,
-  自火報: 27,
-  雑工事: 28,
-  諸経費: 29,
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "https://whatsinc1122-cloud.github.io",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const EXCEL_ROW_LABELS: Record<number, string> = {
-  6: "仮設工事",
-  7: "解体工事",
-  8: "軽鉄・ボード工事",
-  9: "木工事",
-  10: "造作工事",
-  11: "内装工事（クロス等）",
-  12: "タイル工事",
-  13: "塗装工事",
-  14: "左官工事",
-  15: "建具工事",
-  16: "ガラス工事",
-  17: "床下地工事",
-  18: "看板・サイン工事",
-  19: "家具・什器工事",
-  20: "空調設備工事",
-  21: "給排気工事",
-  22: "電気工事",
-  23: "照明工事",
-  24: "衛生器具工事",
-  25: "給排水工事",
-  26: "ガス工事",
-  27: "自動火災報知設備",
-  28: "雑工事",
-  29: "諸経費",
-};
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const {
-    customerName,
-    storeName,
-    totalExTax,
-    totalWithTax,
-    taxAmount,
-    designFee,
-    tsubo,
-    itemAmounts,
-  }: {
+  const data = await req.json() as {
     customerName: string;
     storeName: string;
-    totalExTax: number;
-    totalWithTax: number;
-    taxAmount: number;
-    designFee: number;
     tsubo: number;
-    itemAmounts: Record<string, number>;
-  } = body;
-
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("御見積書表紙_改");
-
-  // Helper to set a cell value
-  const sc = (addr: string, val: string | number) => {
-    sheet.getCell(addr).value = val;
+    items: Record<string, number>;
+    totalExTax: number;
+    tax: number;
+    totalIncTax: number;
+    designFee: number;
   };
 
-  // Header info
-  sc("C7", customerName || "　");
-  sc("C8", "店舗名：" + (storeName || "　"));
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(
+    path.join(process.cwd(), "public", "template.xlsx")
+  );
 
-  // Summary amounts
-  sc("D12", totalWithTax);
-  sc("D13", totalExTax);
-  sc("D14", taxAmount);
-  sc("D20", tsubo);
-
-  // Item breakdown rows (K = label, L = amount)
-  for (const [rowStr, label] of Object.entries(EXCEL_ROW_LABELS)) {
-    const row = parseInt(rowStr);
-    sc("K" + row, label);
-    const appKey = Object.entries(EXCEL_ROW_MAP).find(([, v]) => v === row)?.[0];
-    const amount = appKey ? (itemAmounts[appKey] || 0) : 0;
-    sc("L" + row, amount);
+  const ws = wb.getWorksheet("御見積書表紙_改");
+  if (!ws) {
+    return NextResponse.json({ error: "Sheet not found" }, { status: 500 });
   }
 
-  // Total formula and design fee
-  sheet.getCell("L31").value = { formula: "SUM(L6:L29)", result: totalExTax };
-  sc("L33", designFee);
+  // 値だけ書き込む（スタイルは一切触らない）
+  ws.getCell("C7").value = data.customerName || "　";
+  ws.getCell("C8").value = `店舗名：${data.storeName || "　"}`;
+  ws.getCell("D12").value = data.totalIncTax;
+  ws.getCell("D13").value = data.totalExTax;
+  ws.getCell("D14").value = data.tax;
+  ws.getCell("D20").value = data.tsubo;
 
-  // Generate buffer
-  const buffer = await workbook.xlsx.writeBuffer();
+  const items = data.items || {};
+  ws.getCell("L6").value  = items["仮設"]   || 0;
+  ws.getCell("L7").value  = items["解体"]   || 0;
+  ws.getCell("L10").value = items["軽鉄"]   || 0;
+  ws.getCell("L11").value = items["塗装"]   || 0;
+  ws.getCell("L12").value = items["タイル"] || 0;
+  ws.getCell("L13").value = items["内装"]   || 0;
+  ws.getCell("L14").value = items["ガラス"] || 0;
+  ws.getCell("L15").value = items["建具"]   || 0;
+  ws.getCell("L16").value = items["看板"]   || 0;
+  ws.getCell("L17").value = items["木工"]   || 0;
+  ws.getCell("L18").value = items["床下地"] || 0;
+  ws.getCell("L19").value = items["衛生器具"] || 0;
+  ws.getCell("L20").value = items["給排水"] || 0;
+  ws.getCell("L21").value = items["空調"]   || 0;
+  ws.getCell("L22").value = items["給排気"] || 0;
+  ws.getCell("L23").value = items["電気"]   || 0;
+  ws.getCell("L24").value = items["照明"]   || 0;
+  ws.getCell("L25").value = items["ガス"]   || 0;
+  ws.getCell("L26").value = items["家具"]   || 0;
+  ws.getCell("L27").value = items["自火報"] || 0;
+  ws.getCell("L28").value = items["雑工事"] || 0;
+  ws.getCell("L29").value = items["諸経費"] || 0;
+  ws.getCell("L33").value = data.designFee || 0;
+
+  const buffer = await wb.xlsx.writeBuffer();
 
   const today = new Date();
   const fileDate =
     today.getFullYear() +
     String(today.getMonth() + 1).padStart(2, "0") +
     String(today.getDate()).padStart(2, "0");
-  const storeSafe = (storeName || "estimate").replace(/[\s/\\:*?"<>|]/g, "_");
+  const storeSafe = (data.storeName || "estimate").replace(/[\s/\\:*?"<>|]/g, "_");
   const filename = `見積書_${storeSafe}_${fileDate}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,
     headers: {
+      ...CORS_HEADERS,
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,

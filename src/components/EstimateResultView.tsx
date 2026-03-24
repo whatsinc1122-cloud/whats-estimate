@@ -12,14 +12,6 @@ interface Props {
 
 const fmt = (n: number) => n.toLocaleString("ja-JP");
 
-// Maps app item names → L column row numbers
-const EXCEL_ROW_MAP: Record<string, number> = {
-  仮設: 6, 解体: 7, 軽鉄: 8, 木工: 9, 造作: 10, 内装: 11, タイル: 12,
-  塗装: 13, 左官: 14, 建具: 15, ガラス: 16, 床下地: 17, 看板: 18,
-  家具: 19, 空調: 20, 給排気: 21, 電気: 22, 照明: 23, 衛生器具: 24,
-  給排水: 25, ガス: 26, 自火報: 27, 雑工事: 28, 諸経費: 29,
-};
-
 export default function EstimateResultView({ result, input, customerName, storeName }: Props) {
   const { totalExTax, perTsubo, designFee, totalWithTax, breakdown, similarCases } = result;
   const [exporting, setExporting] = useState(false);
@@ -27,15 +19,13 @@ export default function EstimateResultView({ result, input, customerName, storeN
   const handleExportExcel = async () => {
     setExporting(true);
     try {
-      // Build itemAmounts map from all breakdown items (item.name IS the key)
-      const itemAmounts: Record<string, number> = {};
+      // Build items map: all breakdown items keyed by name
+      const items: Record<string, number> = {};
       for (const item of breakdown) {
-        if (item.name in EXCEL_ROW_MAP) {
-          itemAmounts[item.name] = item.amount;
-        }
+        items[item.name] = item.amount;
       }
 
-      const taxAmount = totalWithTax - totalExTax;
+      const tax = totalWithTax - totalExTax;
 
       const res = await fetch("/api/export-excel", {
         method: "POST",
@@ -43,12 +33,12 @@ export default function EstimateResultView({ result, input, customerName, storeN
         body: JSON.stringify({
           customerName,
           storeName,
-          totalExTax,
-          totalWithTax,
-          taxAmount,
-          designFee,
           tsubo: input.tsubo,
-          itemAmounts,
+          items,
+          totalExTax,
+          tax,
+          totalIncTax: totalWithTax,
+          designFee,
         }),
       });
 
