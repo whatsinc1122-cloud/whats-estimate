@@ -33,6 +33,8 @@ const DEFAULT_INPUT: EstimateInput = {
 export default function EstimateForm() {
   const [input, setInput] = useState<EstimateInput>(DEFAULT_INPUT);
   const [result, setResult] = useState<EstimateResult | null>(null);
+  const [customerName, setCustomerName] = useState("");
+  const [storeName, setStoreName] = useState("");
 
   const handleChange = (field: keyof EstimateInput, value: unknown) => {
     setInput((prev) => ({ ...prev, [field]: value }));
@@ -63,6 +65,32 @@ export default function EstimateForm() {
       <PdfUploader onAnalysisComplete={handleAnalysisComplete} />
 
       <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-6">
+        <h2 className="text-lg font-semibold text-gray-800 border-b pb-3">見積書情報</h2>
+
+        {/* 顧客名・店舗名 */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">顧客名</label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="例：山田 太郎"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">店舗名</label>
+            <input
+              type="text"
+              value={storeName}
+              onChange={(e) => setStoreName(e.target.value)}
+              placeholder="例：カフェ〇〇"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
         <h2 className="text-lg font-semibold text-gray-800 border-b pb-3">基本情報</h2>
 
         {/* 坪数・天井高 */}
@@ -313,7 +341,7 @@ export default function EstimateForm() {
 
       {result && (
         <div id="result-section">
-          <EstimateResultView result={result} input={input} />
+          <EstimateResultView result={result} input={input} customerName={customerName} storeName={storeName} />
         </div>
       )}
     </div>

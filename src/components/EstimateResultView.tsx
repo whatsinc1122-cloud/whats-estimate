@@ -1,16 +1,78 @@
 "use client";
 
+import { useState } from "react";
 import { EstimateResult, EstimateInput } from "@/lib/estimateData";
 
 interface Props {
   result: EstimateResult;
   input: EstimateInput;
+  customerName: string;
+  storeName: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("ja-JP");
 
-export default function EstimateResultView({ result, input }: Props) {
+// Maps app item names → L column row numbers
+const EXCEL_ROW_MAP: Record<string, number> = {
+  仮設: 6, 解体: 7, 軽鉄: 8, 木工: 9, 造作: 10, 内装: 11, タイル: 12,
+  塗装: 13, 左官: 14, 建具: 15, ガラス: 16, 床下地: 17, 看板: 18,
+  家具: 19, 空調: 20, 給排気: 21, 電気: 22, 照明: 23, 衛生器具: 24,
+  給排水: 25, ガス: 26, 自火報: 27, 雑工事: 28, 諸経費: 29,
+};
+
+export default function EstimateResultView({ result, input, customerName, storeName }: Props) {
   const { totalExTax, perTsubo, designFee, totalWithTax, breakdown, similarCases } = result;
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      // Build itemAmounts map from all breakdown items (item.name IS the key)
+      const itemAmounts: Record<string, number> = {};
+      for (const item of breakdown) {
+        if (item.name in EXCEL_ROW_MAP) {
+          itemAmounts[item.name] = item.amount;
+        }
+      }
+
+      const taxAmount = totalWithTax - totalExTax;
+
+      const res = await fetch("/api/export-excel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName,
+          storeName,
+          totalExTax,
+          totalWithTax,
+          taxAmount,
+          designFee,
+          tsubo: input.tsubo,
+          itemAmounts,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Export failed");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const today = new Date();
+      const fileDate =
+        today.getFullYear() +
+        String(today.getMonth() + 1).padStart(2, "0") +
+        String(today.getDate()).padStart(2, "0");
+      const storeSafe = (storeName || "estimate").replace(/[\s/\\:*?"<>|]/g, "_");
+      a.download = `見積書_${storeSafe}_${fileDate}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Excel出力に失敗しました。もう一度お試しください。");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="mt-8 space-y-6">
@@ -99,6 +161,20 @@ export default function EstimateResultView({ result, input }: Props) {
               </tr>
             </tfoot>
           </table>
+        </div>
+        {/* Excel Export Button */}
+        <div className="px-6 pb-5 pt-3">
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white text-sm transition-opacity disabled:opacity-60"
+            style={{ backgroundColor: "#1D9E75" }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+            </svg>
+            {exporting ? "出力中..." : "見積書をExcelで出力"}
+          </button>
         </div>
       </div>
 
