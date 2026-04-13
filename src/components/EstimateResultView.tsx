@@ -13,7 +13,7 @@ interface Props {
 const fmt = (n: number) => n.toLocaleString("ja-JP");
 
 export default function EstimateResultView({ result, input, customerName, storeName }: Props) {
-  const { totalExTax, perTsubo, designFee, totalWithTax, breakdown, similarCases } = result;
+  const { totalExTax, perTsubo, designFee, totalWithTax, breakdown, similarCases, isCapped } = result;
   const [exporting, setExporting] = useState(false);
 
   const handleExportExcel = async () => {
@@ -87,6 +87,11 @@ export default function EstimateResultView({ result, input, customerName, storeN
             <p className="text-xl font-semibold">¥{fmt(totalWithTax)}</p>
           </div>
         </div>
+        {isCapped && (
+          <div className="mt-3 px-3 py-1.5 bg-yellow-400/20 border border-yellow-300/40 rounded text-xs text-yellow-100">
+            ※ 高価格帯案件のため坪単価を75万円にクランプしています（参考値）
+          </div>
+        )}
         <div className="mt-4 pt-4 border-t border-white/20 text-xs opacity-75 flex flex-wrap gap-3">
           <span>{input.tsubo}坪</span>
           <span>天井高 {input.ceilingHeight}m</span>
