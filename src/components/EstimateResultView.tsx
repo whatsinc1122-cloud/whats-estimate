@@ -13,19 +13,16 @@ interface Props {
 const fmt = (n: number) => n.toLocaleString("ja-JP");
 
 export default function EstimateResultView({ result, input, customerName, storeName }: Props) {
-  const { totalExTax, perTsubo, designFee, totalWithTax, breakdown, similarCases, isCapped } = result;
+  const { totalExTax, perTsubo, designFee, subTotal, consumptionTax, totalWithTax, breakdown, similarCases, isCapped } = result;
   const [exporting, setExporting] = useState(false);
 
   const handleExportExcel = async () => {
     setExporting(true);
     try {
-      // Build items map: all breakdown items keyed by name
       const items: Record<string, number> = {};
       for (const item of breakdown) {
         items[item.name] = item.amount;
       }
-
-      const tax = totalWithTax - totalExTax;
 
       const res = await fetch("/api/export-excel", {
         method: "POST",
@@ -36,9 +33,10 @@ export default function EstimateResultView({ result, input, customerName, storeN
           tsubo: input.tsubo,
           items,
           totalExTax,
-          tax,
-          totalIncTax: totalWithTax,
           designFee,
+          subTotal,
+          tax: consumptionTax,
+          totalIncTax: totalWithTax,
         }),
       });
 
@@ -69,27 +67,38 @@ export default function EstimateResultView({ result, input, customerName, storeN
       {/* Summary */}
       <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white shadow-lg">
         <h2 className="text-base font-medium opacity-90 mb-4">概算見積もり結果</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div>
-            <p className="text-xs opacity-75 mb-1">概算総額（税別）</p>
-            <p className="text-2xl font-bold">¥{fmt(totalExTax)}</p>
+        {/* 坪単価 */}
+        <div className="mb-4">
+          <p className="text-xs opacity-75 mb-0.5">坪単価（工事合計ベース）</p>
+          <p className="text-xl font-semibold">¥{fmt(perTsubo)}<span className="text-sm font-normal ml-1">/坪</span></p>
+        </div>
+        {/* 3段構成 */}
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between items-center py-1.5 border-b border-white/20">
+            <span className="opacity-85">工事合計（税抜）</span>
+            <span className="font-semibold tabular-nums">¥{fmt(totalExTax)}</span>
           </div>
-          <div>
-            <p className="text-xs opacity-75 mb-1">坪単価</p>
-            <p className="text-xl font-semibold">¥{fmt(perTsubo)}<span className="text-sm font-normal">/坪</span></p>
+          <div className="flex justify-between items-center py-1.5 border-b border-white/20">
+            <span className="opacity-85">設計デザイン費（10%）</span>
+            <span className="font-semibold tabular-nums">¥{fmt(designFee)}</span>
           </div>
-          <div>
-            <p className="text-xs opacity-75 mb-1">設計費目安</p>
-            <p className="text-xl font-semibold">¥{fmt(designFee)}</p>
+          <div className="flex justify-between items-center py-1 opacity-75 text-xs">
+            <span>小計（税抜）</span>
+            <span className="tabular-nums">¥{fmt(subTotal)}</span>
           </div>
-          <div>
-            <p className="text-xs opacity-75 mb-1">税込総額（10%）</p>
-            <p className="text-xl font-semibold">¥{fmt(totalWithTax)}</p>
+          <div className="flex justify-between items-center py-1 opacity-75 text-xs">
+            <span>消費税（10%）</span>
+            <span className="tabular-nums">¥{fmt(consumptionTax)}</span>
+          </div>
+          <div className="flex justify-between items-center pt-2 border-t border-white/30">
+            <span className="font-bold text-base">税込総額</span>
+            <span className="font-bold text-2xl tabular-nums">¥{fmt(totalWithTax)}</span>
           </div>
         </div>
+        <p className="mt-2 text-xs opacity-60">※ 設計デザイン費は工事合計の10%で算出しています</p>
         {isCapped && (
           <div className="mt-3 px-3 py-1.5 bg-yellow-400/20 border border-yellow-300/40 rounded text-xs text-yellow-100">
-            ※ 高価格帯案件のため坪単価を75万円にクランプしています（参考値）
+            ※ 高価格帯案件のため坪単価を68万円にクランプしています（参考値）
           </div>
         )}
         <div className="mt-4 pt-4 border-t border-white/20 text-xs opacity-75 flex flex-wrap gap-3">

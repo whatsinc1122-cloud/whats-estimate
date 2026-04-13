@@ -445,6 +445,8 @@ export interface EstimateResult {
   totalExTax: number;
   perTsubo: number;
   designFee: number;
+  subTotal: number;
+  consumptionTax: number;
   totalWithTax: number;
   breakdown: ItemBreakdown[];
   similarCases: SimilarCase[];
@@ -493,7 +495,7 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
   const totalScore = top4.reduce((s, c) => s + c.score, 0);
 
   const itemNames = Object.keys(CASES[0].items);
-  // ①中央値ベース: 各アイテムの坪単価をtop4でソートし、4件の中央値（2・3位平均）を使う
+  // 中央値ベース: 各アイテムの坪単価をtop4でソートし、4件の中央値（2・3位平均）を使う
   const medianUnitPrices: Record<string, number> = {};
   for (const itemName of itemNames) {
     const vals = top4.map(c => c.items[itemName] ?? 0).sort((a, b) => a - b);
@@ -507,11 +509,13 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
   const furnMod = input.furniture === "多め" ? 1.15 : input.furniture === "少なめ" ? 0.85 : 1.0;
   const acMod = input.ac === "業務用マルチ" ? 1.2 : input.ac === "家庭用複数台" ? 0.9 : 0.3;
   const lightMod = input.lighting === "演出照明" ? 1.25 : 1.0;
+  // ②補正係数 0.93（中央値ベース単価を全体的に引き下げる）
+  const CORRECTION = 0.93;
 
   const breakdown: ItemBreakdown[] = [];
 
   for (const itemName of itemNames) {
-    let unitPrice = medianUnitPrices[itemName];
+    let unitPrice = medianUnitPrices[itemName] * CORRECTION;
 
     if (itemName === "空調") unitPrice *= acMod;
     if (itemName === "照明") unitPrice *= lightMod;
@@ -547,8 +551,8 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
 
   let totalExTax = breakdown.reduce((s, b) => s + b.amount, 0);
 
-  // ②坪単価キャップ 75万円/坪
-  const CAP_PER_TSUBO = 750000;
+  // ①坪単価キャップ 68万円/坪
+  const CAP_PER_TSUBO = 680000;
   let isCapped = false;
   const rawPerTsubo = totalExTax / input.tsubo;
   if (rawPerTsubo > CAP_PER_TSUBO) {
@@ -566,8 +570,11 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
   }
 
   const perTsubo = Math.round(totalExTax / input.tsubo);
-  const designFee = Math.round(totalExTax * 0.08);
-  const totalWithTax = Math.round(totalExTax * 1.1);
+  // ③設計デザイン費 = 工事合計の10%、税込総額 = (工事合計+設計費) × 1.1
+  const designFee = Math.round(totalExTax * 0.10);
+  const subTotal = totalExTax + designFee;
+  const consumptionTax = Math.round(subTotal * 0.1);
+  const totalWithTax = subTotal + consumptionTax;
 
   const similarCases: SimilarCase[] = top4.map(c => ({
     id: c.id,
@@ -578,5 +585,5 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
     perTsubo: Math.round(c.total / c.tsubo),
   }));
 
-  return { totalExTax, perTsubo, designFee, totalWithTax, breakdown, similarCases, isCapped };
+  return { totalExTax, perTsubo, designFee, subTotal, consumptionTax, totalWithTax, breakdown, similarCases, isCapped };
 }

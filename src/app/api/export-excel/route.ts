@@ -68,9 +68,10 @@ export async function POST(req: NextRequest) {
     tsubo: number;
     items: Record<string, number>;
     totalExTax: number;
+    designFee: number;
+    subTotal: number;
     tax: number;
     totalIncTax: number;
-    designFee: number;
   };
 
   // テンプレートをZIPとして読み込む（drawing・画像・スタイルはそのまま保持）
@@ -85,16 +86,16 @@ export async function POST(req: NextRequest) {
   sheetXml = setString(sheetXml, "C7", data.customerName || "　");
   sheetXml = setString(sheetXml, "C8", `店舗名：${data.storeName || "　"}`);
 
-  // ── 金額サマリ ──
+  // ── 金額サマリ（D12=税込総額, D13=小計税抜=工事+設計費, D14=消費税）──
   sheetXml = setNumber(sheetXml, "D12", data.totalIncTax ?? 0);
-  sheetXml = setNumber(sheetXml, "D13", data.totalExTax  ?? 0);
+  sheetXml = setNumber(sheetXml, "D13", data.subTotal    ?? data.totalExTax ?? 0);
   sheetXml = setNumber(sheetXml, "D14", data.tax         ?? 0);
   sheetXml = setNumber(sheetXml, "D20", data.tsubo       ?? 0);
 
   // ── 工事項目金額（L列）──
   const items = data.items || {};
   const ITEM_MAP: Record<string, string> = {
-    "L6":  "仮設",   "L7":  "解体",
+    "L6":  "仮設",   "L7":  "解体",   "L8":  "左官",   "L9":  "金物",
     "L10": "軽鉄",   "L11": "塗装",   "L12": "タイル", "L13": "内装",
     "L14": "ガラス", "L15": "建具",   "L16": "看板",   "L17": "木工",
     "L18": "床下地", "L19": "衛生器具","L20": "給排水", "L21": "空調",
