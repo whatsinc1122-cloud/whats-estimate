@@ -470,7 +470,7 @@ function scoreCase(c: ProjectCase, input: EstimateInput): number {
 
 function getAreaMultiplier(area: Area): number {
   switch (area) {
-    case "東京都（都心）": return 1.15;
+    case "東京都（都心）": return 1.03;
     case "東京都（郊外）": return 1.0;
     case "神奈川・埼玉・千葉": return 0.92;
     case "群馬・その他": return 0.85;
