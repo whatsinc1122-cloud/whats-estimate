@@ -506,11 +506,12 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
   const condMultiplier = getConditionMultiplier(input.condition);
   const ceilingMod = input.ceilingHeight > 2.7 ? 1.08 : 1.0;
   const floorMod = input.floor === "磁器タイル" ? 1.12 : 1.0;
-  const furnMod = input.furniture === "多め" ? 1.15 : input.furniture === "少なめ" ? 0.85 : 1.0;
   const acMod = input.ac === "業務用マルチ" ? 1.2 : input.ac === "家庭用複数台" ? 0.9 : 0.3;
   const lightMod = input.lighting === "演出照明" ? 1.25 : 1.0;
-  // ②補正係数 0.93（中央値ベース単価を全体的に引き下げる）
+  // 補正係数 0.93
   const CORRECTION = 0.93;
+  // 家具は造作スペック別固定基準値（特注外れ値の影響を排除）
+  const FURNITURE_BASE: Record<string, number> = { "多め": 80000, "標準": 40000, "少なめ": 15000 };
 
   const breakdown: ItemBreakdown[] = [];
 
@@ -519,7 +520,7 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
 
     if (itemName === "空調") unitPrice *= acMod;
     if (itemName === "照明") unitPrice *= lightMod;
-    if (itemName === "家具") unitPrice *= furnMod;
+    if (itemName === "家具") unitPrice = FURNITURE_BASE[input.furniture] ?? 40000;
     if (itemName === "タイル" || itemName === "床下地") unitPrice *= floorMod;
     if (itemName === "解体") {
       if (!input.hasDemolition) unitPrice = 0;
@@ -551,11 +552,11 @@ export function calculateEstimate(input: EstimateInput): EstimateResult {
 
   let totalExTax = breakdown.reduce((s, b) => s + b.amount, 0);
 
-  // ①坪単価キャップ 68万円/坪
+  // 坪単価キャップ 68万円/坪（造作家具多めはキャップ対象外）
   const CAP_PER_TSUBO = 680000;
   let isCapped = false;
   const rawPerTsubo = totalExTax / input.tsubo;
-  if (rawPerTsubo > CAP_PER_TSUBO) {
+  if (input.furniture !== "多め" && rawPerTsubo > CAP_PER_TSUBO) {
     isCapped = true;
     const scale = (CAP_PER_TSUBO * input.tsubo) / totalExTax;
     for (const b of breakdown) {
